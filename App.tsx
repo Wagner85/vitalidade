@@ -4,7 +4,7 @@ import { Session } from '@supabase/supabase-js';
 import { supabase } from './services/supabaseClient';
 import { UserData, WeeklyPlan, Profile } from './types';
 import { generatePlan } from './services/geminiService';
-import { getProfile, saveWeeklyPlan, updateProfile } from './services/profileService';
+import { getProfile, saveWeeklyPlan, updateProfile, clearWeeklyPlan } from './services/profileService';
 import Header from './components/Header';
 import LandingPage from './components/LandingPage';
 import Auth from './components/Auth';
@@ -46,7 +46,7 @@ function App() {
       setSession(session);
       if (session) {
         loadProfileAndPlan();
-      } else if (window.location.pathname !== '/auth') { // Permite acesso à rota /auth sem sessão
+      } else if (window.location.pathname !== '/auth' && window.location.pathname !== '/form') { // Permite acesso às rotas /auth e /form sem sessão
         navigate('/');
       }
     });
@@ -55,7 +55,7 @@ function App() {
       setSession(session);
       if (session) {
         loadProfileAndPlan();
-      } else if (window.location.pathname !== '/auth') { // Permite acesso à rota /auth sem sessão
+      } else if (window.location.pathname !== '/auth' && window.location.pathname !== '/form') { // Permite acesso às rotas /auth e /form sem sessão
         setWeeklyPlan(null);
         setError(null);
         navigate('/');
@@ -73,24 +73,37 @@ function App() {
 
   const handleFormSubmit = useCallback(async (data: UserData) => {
     setError(null);
+    console.log('1. Navegando para /generating');
     navigate('/generating'); // Nova rota para o spinner
     try {
+      console.log('2. Atualizando perfil...');
       await updateProfile(data);
+      console.log('3. Gerando plano...');
       const plan = await generatePlan(data);
+      console.log('4. Plano gerado, salvando no banco de dados...');
       await saveWeeklyPlan(plan);
+      console.log('5. Plano salvo, atualizando estado e navegando para /plan');
       setWeeklyPlan(plan);
       navigate('/plan');
     } catch (err: any) {
-      console.error(err);
+      console.error('Erro no handleFormSubmit:', err);
       const errorMessage = err.message || 'Desculpe, não foi possível gerar seu plano. Verifique suas informações e tente novamente.';
       setError(errorMessage);
+      console.log('6. Erro, navegando para /form');
       navigate('/form');
     }
   }, [navigate]);
 
-  const handleBackToForm = () => {
+  const handleBackToForm = async () => { // Adicionado async
     setWeeklyPlan(null);
     setError(null);
+    try {
+      await clearWeeklyPlan(); // Limpa o plano no banco de dados
+      console.log('Plano semanal limpo no banco de dados.');
+    } catch (err) {
+      console.error('Erro ao limpar o plano semanal:', err);
+      setError('Não foi possível limpar o plano anterior. Tente novamente.');
+    }
     navigate('/form');
   };
 

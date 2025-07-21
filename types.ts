@@ -58,8 +58,3 @@ export interface WeeklyPlan {
   introduction: string;
   plan: DailyPlan[];
 }
-
-declare module '*.css' {
-  const content: { [className: string]: string };
-  export default content;
-}

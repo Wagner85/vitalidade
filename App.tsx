@@ -46,7 +46,7 @@ function App() {
       setSession(session);
       if (session) {
         loadProfileAndPlan();
-      } else {
+      } else if (window.location.pathname !== '/auth') { // Permite acesso à rota /auth sem sessão
         navigate('/');
       }
     });
@@ -55,7 +55,7 @@ function App() {
       setSession(session);
       if (session) {
         loadProfileAndPlan();
-      } else {
+      } else if (window.location.pathname !== '/auth') { // Permite acesso à rota /auth sem sessão
         setWeeklyPlan(null);
         setError(null);
         navigate('/');

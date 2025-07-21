@@ -4,7 +4,7 @@ import { Session } from '@supabase/supabase-js';
 import { supabase } from './services/supabaseClient';
 import { UserData, WeeklyPlan, Profile } from './types';
 import { generatePlan } from './services/geminiService';
-import { getProfile, saveWeeklyPlan, updateProfile, clearWeeklyPlan } from './services/profileService';
+import { getProfile, saveWeeklyPlan, updateProfile } from './services/profileService';
 import Header from './components/Header';
 import LandingPage from './components/LandingPage';
 import Auth from './components/Auth';
@@ -12,33 +12,34 @@ import InputForm from './components/InputForm';
 import PlanDisplay from './components/PlanDisplay';
 import LoadingSpinner from './components/LoadingSpinner';
 import Footer from './components/Footer';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+
+type View = 'loading' | 'landing' | 'auth' | 'form' | 'generating' | 'plan';
 
 function App() {
   const [session, setSession] = useState<Session | null>(null);
+  const [view, setView] = useState<View>('loading');
   const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
 
   const loadProfileAndPlan = useCallback(async () => {
     try {
       const profile = await getProfile();
       if (profile?.weekly_plan) {
         setWeeklyPlan(profile.weekly_plan);
-        navigate('/plan');
+        setView('plan');
       } else {
-        navigate('/form');
+        setView('form');
       }
     } catch (e) {
       console.error("Failed to load profile", e);
       setError("Não foi possível carregar seu perfil. Tente novamente mais tarde.");
-      navigate('/form');
+      setView('form');
     }
-  }, [navigate]);
+  }, []);
 
   useEffect(() => {
     if (!supabase) {
-      navigate('/'); // Redireciona para landing se supabase não estiver inicializado
+      setView('landing'); // Failsafe if supabase is not initialized
       return;
     }
     
@@ -46,87 +47,104 @@ function App() {
       setSession(session);
       if (session) {
         loadProfileAndPlan();
-      } else if (window.location.pathname !== '/auth' && window.location.pathname !== '/form') { // Permite acesso às rotas /auth e /form sem sessão
-        navigate('/');
+      } else {
+        setView('landing');
       }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) {
-        loadProfileAndPlan();
-      } else if (window.location.pathname !== '/auth' && window.location.pathname !== '/form') { // Permite acesso às rotas /auth e /form sem sessão
+        // Only change view if user was previously logged out
+        setView(currentView => {
+           if (currentView === 'landing' || currentView === 'auth') {
+             loadProfileAndPlan();
+             return 'loading'; // Will be updated by loadProfileAndPlan
+           }
+           return currentView;
+        });
+      } else {
         setWeeklyPlan(null);
         setError(null);
-        navigate('/');
+        setView('landing');
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [loadProfileAndPlan, navigate]);
+  }, [loadProfileAndPlan]);
 
   const handleLogout = async () => {
     if (!supabase) return;
     await supabase.auth.signOut();
-    navigate('/');
   };
 
   const handleFormSubmit = useCallback(async (data: UserData) => {
+    setView('generating');
     setError(null);
-    console.log('1. Navegando para /generating');
-    navigate('/generating'); // Nova rota para o spinner
     try {
-      console.log('2. Atualizando perfil...');
       await updateProfile(data);
-      console.log('3. Gerando plano...');
       const plan = await generatePlan(data);
-      console.log('4. Plano gerado, salvando no banco de dados...');
-      await saveWeeklyPlan(plan);
-      console.log('5. Plano salvo, atualizando estado e navegando para /plan');
+      await saveWeeklyPlan(plan); // Save the newly generated plan
       setWeeklyPlan(plan);
-      navigate('/plan');
+      setView('plan');
     } catch (err: any) {
-      console.error('Erro no handleFormSubmit:', err);
+      console.error(err);
       const errorMessage = err.message || 'Desculpe, não foi possível gerar seu plano. Verifique suas informações e tente novamente.';
       setError(errorMessage);
-      console.log('6. Erro, navegando para /form');
-      navigate('/form');
+      setView('form');
     }
-  }, [navigate]);
+  }, []);
 
-  const handleBackToForm = async () => { // Adicionado async
+  const handleBackToForm = () => {
     setWeeklyPlan(null);
     setError(null);
-    try {
-      await clearWeeklyPlan(); // Limpa o plano no banco de dados
-      console.log('Plano semanal limpo no banco de dados.');
-    } catch (err) {
-      console.error('Erro ao limpar o plano semanal:', err);
-      setError('Não foi possível limpar o plano anterior. Tente novamente.');
+    setView('form');
+  };
+
+  const renderContent = () => {
+    if (!supabase) {
+      return null; // Error message is handled by supabaseClient.ts
     }
-    navigate('/form');
+    
+    if (view === 'loading') {
+        return <LoadingSpinner />;
+    }
+
+    if (!session) {
+      switch (view) {
+        case 'auth':
+          return <Auth />;
+        case 'landing':
+        default:
+          return <LandingPage onStart={() => setView('auth')} />;
+      }
+    }
+    
+    switch (view) {
+      case 'generating':
+        return <LoadingSpinner />;
+      case 'plan':
+        return weeklyPlan ? <PlanDisplay plan={weeklyPlan} onBack={handleBackToForm} /> : <LoadingSpinner />;
+      case 'form':
+      default:
+        return (
+          <>
+            {error && (
+              <div className="text-center mb-6 max-w-2xl mx-auto">
+                <p className="text-red-500 bg-red-100 p-4 rounded-lg">{error}</p>
+              </div>
+            )}
+            <InputForm onSubmit={handleFormSubmit} />
+          </>
+        );
+    }
   };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col">
       <Header session={session} onLogout={handleLogout} />
-      <main className="flex-grow container mx-auto px-4 py-8 mt-20"> {/* Adicionado mt-20 para compensar o header fixo */}
-        <Routes>
-          <Route path="/" element={<LandingPage onStart={() => navigate('/auth')} />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/form" element={
-            <>
-              {error && (
-                <div className="text-center mb-6 max-w-2xl mx-auto">
-                  <p className="text-red-500 bg-red-100 p-4 rounded-lg">{error}</p>
-                </div>
-              )}
-              <InputForm onSubmit={handleFormSubmit} />
-            </>
-          } />
-          <Route path="/generating" element={<LoadingSpinner />} />
-          <Route path="/plan" element={weeklyPlan ? <PlanDisplay plan={weeklyPlan} onBack={handleBackToForm} /> : <LoadingSpinner />} />
-        </Routes>
+      <main className="flex-grow container mx-auto px-4 py-8">
+        {renderContent()}
       </main>
       <Footer />
     </div>

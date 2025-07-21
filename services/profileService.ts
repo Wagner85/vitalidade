@@ -50,26 +50,6 @@ export const updateProfile = async (data: UserData) => {
 };
 
 /**
- * Limpa o plano semanal do perfil do usuário no banco de dados.
- */
-export const clearWeeklyPlan = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        throw new Error("Usuário não autenticado. Impossível limpar o plano.");
-    }
-
-    const { error } = await supabase
-        .from('profiles')
-        .update({ weekly_plan: null })
-        .eq('id', user.id);
-
-    if (error) {
-        console.error('Erro ao limpar o plano semanal:', error);
-        throw new Error('Não foi possível limpar seu plano semanal.');
-    }
-};
-
-/**
  * Salva o plano semanal gerado para o perfil do usuário.
  * @param plan - O objeto WeeklyPlan a ser salvo.
  */

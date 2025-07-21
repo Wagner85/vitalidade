@@ -78,7 +78,7 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit }) => {
           <div className="grid md:grid-cols-2 gap-6">
             <div>
               <label htmlFor="age" className="block text-sm font-medium text-slate-700 mb-1">Idade</label>
-              <Input id="age" type="number" {...register('age', { required: 'Idade é obrigatória', min: { value: 60, message: 'A idade mínima é 60 anos' } })} />
+              <Input id="age" type="number" {...register('age', { required: 'Idade é obrigatória', min: { value: 50, message: 'A idade mínima é 50 anos' } })} />
               {errors.age && <p className="text-red-500 text-sm mt-1">{errors.age.message}</p>}
             </div>
             <div>

@@ -1,6 +1,7 @@
 
 import React from 'react';
 import Button from './ui/Button';
+import { Link } from 'react-router-dom'; // Importar Link
 
 interface LandingPageProps {
   onStart: () => void;
@@ -39,9 +40,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
             Receba planos de exercícios e nutrição personalizados, criados por nossa IA especialista para promover um envelhecimento ativo e saudável. Seu bem-estar é a nossa prioridade.
           </p>
           <div className="mt-10">
-            <Button onClick={onStart} size="lg">
+            <Link to="/auth" className="inline-flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700 md:py-4 md:text-lg md:px-10">
               Começar minha Jornada
-            </Button>
+            </Link>
             <p className="mt-4 text-sm text-slate-500">Acesse com segurança para proteger suas informações.</p>
           </div>
         </div>

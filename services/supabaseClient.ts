@@ -27,14 +27,13 @@ export interface Database {
 }
 
 
-// As credenciais do Supabase foram fornecidas e configuradas para o projeto.
-const supabaseUrl = 'https://qyjpkcjsnmkfntyrbueh.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF5anBrY2pzbm1rZm50eXJidWVoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwOTI5MTUsImV4cCI6MjA2ODY2ODkxNX0.P-r6RQqGpUt1e_JrE_x-x7PjjbiIyc-pdX5qhO_nKk0';
+// As credenciais do Supabase são carregadas das variáveis de ambiente.
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Validação para garantir que as chaves não estão vazias.
 if (!supabaseUrl || !supabaseAnonKey) {
-  // Isso não deve acontecer com as chaves fornecidas, mas é uma boa prática de segurança.
-  throw new Error('As credenciais do Supabase (URL ou Chave Anon) estão ausentes no arquivo services/supabaseClient.ts');
+  throw new Error('As credenciais do Supabase (VITE_SUPABASE_URL ou VITE_SUPABASE_ANON_KEY) estão ausentes nas variáveis de ambiente. Verifique seu arquivo .env.');
 }
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);

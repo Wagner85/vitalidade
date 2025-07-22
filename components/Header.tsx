@@ -6,6 +6,7 @@ import Button from './ui/Button';
 interface HeaderProps {
   session: Session | null;
   onLogout: () => void;
+  onHome: () => void; // Nova prop para o botão Home
 }
 
 const LeafIcon = () => (
@@ -16,7 +17,9 @@ const LeafIcon = () => (
 );
 
 
-const Header: React.FC<HeaderProps> = ({ session, onLogout }) => {
+const Header: React.FC<HeaderProps> = ({ session, onLogout, onHome }) => {
+  const feedbackUrl = "https://automation.aimentory.com.br/form/c6ab06e4-a8d9-4f1a-b5e6-beea1a9cb946";
+
   return (
     <header className="bg-white shadow-sm">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
@@ -26,11 +29,19 @@ const Header: React.FC<HeaderProps> = ({ session, onLogout }) => {
                 Vitalidade<span className="text-emerald-600">Dourada</span> AI
             </h1>
         </div>
-        {session && (
-          <Button onClick={onLogout} variant="secondary">
-            Sair
-          </Button>
-        )}
+        <nav className="flex items-center gap-4">
+            <Button onClick={onHome} variant="ghost">
+                Home
+            </Button>
+            <Button onClick={() => window.open(feedbackUrl, '_blank')} variant="ghost">
+                Feedback
+            </Button>
+            {session && (
+              <Button onClick={onLogout} variant="secondary">
+                Sair
+              </Button>
+            )}
+        </nav>
       </div>
     </header>
   );

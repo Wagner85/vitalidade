@@ -101,6 +101,17 @@ function App() {
     setView('form');
   };
 
+  const handleGoHome = useCallback(() => {
+    if (session) {
+      // Se o usuário estiver logado, volta para o formulário ou plano existente
+      loadProfileAndPlan(); // Isso vai definir 'form' ou 'plan'
+    } else {
+      // Se não estiver logado, volta para a landing page
+      setView('landing');
+    }
+    setError(null); // Limpa qualquer erro ao voltar para a home
+  }, [session, loadProfileAndPlan]);
+
   const renderContent = () => {
     if (!supabase) {
       return null; // Error message is handled by supabaseClient.ts
@@ -142,7 +153,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col">
-      <Header session={session} onLogout={handleLogout} />
+      <Header session={session} onLogout={handleLogout} onHome={handleGoHome} />
       <main className="flex-grow container mx-auto px-4 py-8">
         {renderContent()}
       </main>

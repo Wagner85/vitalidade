@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
+          'jspdf': 'https://esm.sh/jspdf@^2.5.1'
         }
       }
     };

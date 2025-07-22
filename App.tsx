@@ -135,7 +135,9 @@ function App() {
       case 'generating':
         return <LoadingSpinner />;
       case 'plan':
-        return weeklyPlan ? <PlanDisplay plan={weeklyPlan} onBack={handleBackToForm} /> : <LoadingSpinner />;
+        return weeklyPlan && session?.user?.email ? (
+          <PlanDisplay plan={weeklyPlan} onBack={handleBackToForm} userEmail={session.user.email} />
+        ) : <LoadingSpinner />;
       case 'form':
       default:
         return (

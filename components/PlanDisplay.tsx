@@ -1,8 +1,10 @@
 
 import React, { useState } from 'react';
+import jsPDF from 'jspdf';
 import { WeeklyPlan, DailyPlan, Meal } from '../types';
 import Button from './ui/Button';
 import Card from './ui/Card';
+import LoadingSpinner from './LoadingSpinner';
 
 // --- Icons ---
 const DumbbellIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 text-indigo-500"><path d="M14.4 14.4 9.6 9.6M18 7l-1.4-1.4M6 17l-1.4-1.4M21 16l-2-2M3 8l-2-2M12 22a1 1 0 0 0 1-1v-5a1 1 0 0 0-2 0v5a1 1 0 0 0 1 1ZM12 3a1 1 0 0 0-1 1v5a1 1 0 0 0 2 0V4a1 1 0 0 0-1-1Z"></path></svg>;
@@ -13,6 +15,7 @@ const BookOpenIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" he
 interface PlanDisplayProps {
   plan: WeeklyPlan;
   onBack: () => void;
+  userEmail: string;
 }
 
 const MealCard: React.FC<{ title: string; meal: Meal }> = ({ title, meal }) => (
@@ -116,8 +119,223 @@ const DailyPlanView: React.FC<{ day: DailyPlan }> = ({ day }) => (
 );
 
 
-const PlanDisplay: React.FC<PlanDisplayProps> = ({ plan, onBack }) => {
+const PlanDisplay: React.FC<PlanDisplayProps> = ({ plan, onBack, userEmail }) => {
     const [selectedDayIndex, setSelectedDayIndex] = useState(0);
+    const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+    const handleDownloadPdf = () => {
+        setIsGeneratingPdf(true);
+
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 10;
+        const contentWidth = pageWidth - margin * 2;
+        const footerStartY = pageHeight - 25;
+        let yPos = 0;
+
+        // Colors inspired by TailwindCSS palette
+        const colors = {
+            slate: { 800: '#1e293b', 700: '#334155', 600: '#475569' },
+            indigo: { 600: '#4f46e5', 100: '#e0e7ff', 50: '#eef2ff' },
+            orange: { 600: '#f97316', 100: '#ffedd5', 50: '#fff7ed' },
+            emerald: { 800: '#065f46', 600: '#059669', 100: '#d1fae5', 50: '#f0fdf4' },
+            amber: { 600: '#f59e0b', 100: '#fef3c7', 50: '#fffbeb' },
+        };
+
+        const addHeader = (email: string, day: string) => {
+            doc.setTextColor(colors.slate[800]);
+            doc.setFontSize(16);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Vitalidade Dourada AI', pageWidth / 2, margin + 5, { align: 'center' });
+            
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(colors.slate[600]);
+            doc.text('web.aimentory.com.br', pageWidth / 2, margin + 11, { align: 'center' });
+            doc.text(`Plano para: ${email}`, pageWidth / 2, margin + 17, { align: 'center' });
+
+            doc.setFontSize(18);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(colors.emerald[800]);
+            doc.text(day, margin, margin + 30);
+            yPos = margin + 35;
+        };
+
+
+        const drawCard = (title: string, focus: string, items: { name: string; description: string }[], notes: string[] | undefined, titleColor: string, notesBgColor: string) => {
+            const cardStartY = yPos;
+            doc.setFont('helvetica', 'normal');
+            
+            // Section Title
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(titleColor);
+            doc.text(title, margin + 5, yPos + 5);
+            
+            // Section Focus
+            if (focus) {
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'italic');
+                doc.setTextColor(colors.slate[600]);
+                const focusLines = doc.splitTextToSize(focus, contentWidth - 10);
+                doc.text(focusLines, margin + 5, yPos + 11);
+                yPos += 6 + (focusLines.length * 4);
+            } else {
+                yPos += 5;
+            }
+
+            // Items
+            items.forEach(item => {
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(colors.slate[700]);
+                const nameLines = doc.splitTextToSize(item.name, contentWidth - 10);
+                doc.text(nameLines, margin + 5, yPos + 5);
+                yPos += (nameLines.length * 4);
+
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(colors.slate[600]);
+                const descLines = doc.splitTextToSize(item.description, contentWidth - 10);
+                doc.text(descLines, margin + 5, yPos + 4);
+                yPos += (descLines.length * 3.5) + 6;
+            });
+
+            // Notes
+            if (notes && notes.length > 0) {
+                const notesStartY = yPos;
+                const notesText = notes.map(n => `- ${n}`).join('\n');
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(colors.slate[700]);
+                const notesLines = doc.splitTextToSize(notesText, contentWidth - 18);
+                doc.text(notesLines, margin + 9, yPos + 9);
+                const notesHeight = (notesLines.length * 3.5) + 12;
+                
+                doc.setFillColor(notesBgColor);
+                doc.rect(margin + 5, notesStartY + 2, contentWidth - 10, notesHeight, 'F');
+                doc.text(notesLines, margin + 9, yPos + 9);
+                yPos += notesHeight + 5;
+            }
+
+            // Draw card background
+            doc.setFillColor('#ffffff');
+            doc.setDrawColor(colors.slate[600]);
+            doc.setLineWidth(0.1);
+            doc.rect(margin, cardStartY, contentWidth, yPos - cardStartY, 'S'); // Stroke
+            yPos += 8; // Space between cards
+        };
+
+        plan.plan.forEach((day, index) => {
+            if (index > 0) doc.addPage();
+            addHeader(userEmail, day.dayOfWeek);
+
+            drawCard(
+                "Plano de Exercícios",
+                day.exerciseFocus,
+                day.exercises,
+                day.exerciseNotes,
+                colors.indigo[600],
+                colors.indigo[50]
+            );
+
+            const meals = [
+                { name: "Café da Manhã", description: `${day.breakfast.option} (Benefícios: ${day.breakfast.benefits})` },
+                { name: "Lanche da Manhã", description: `${day.morningSnack.option} (Benefícios: ${day.morningSnack.benefits})` },
+                { name: "Almoço", description: `${day.lunch.option} (Benefícios: ${day.lunch.benefits})` },
+                { name: "Lanche da Tarde", description: `${day.afternoonSnack.option} (Benefícios: ${day.afternoonSnack.benefits})` },
+                { name: "Jantar", description: `${day.dinner.option} (Benefícios: ${day.dinner.benefits})` },
+            ];
+            drawCard(
+                "Plano Nutricional",
+                day.mealFocus,
+                meals,
+                day.mealNotes,
+                colors.orange[600],
+                colors.orange[50]
+            );
+
+            // Reminders and Vida Vitoriosa are smaller and can be drawn differently
+            const reminders = Object.entries(day.vitalityReminders).map(([key, value]) => ({
+                name: key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
+                description: value
+            }));
+            drawCard(
+                "Lembretes de Vitalidade",
+                "",
+                reminders,
+                undefined,
+                colors.amber[600] || '#f59e0b', // Fallback color
+                colors.amber[50] || '#fffbeb'
+            );
+
+            const vidaVitoriosaItems = [
+                { name: `"${day.vidaVitoriosa.verse}"`, description: day.vidaVitoriosa.motivation }
+            ];
+            drawCard(
+                "Vida Vitoriosa",
+                "",
+                vidaVitoriosaItems,
+                undefined,
+                colors.emerald[600],
+                colors.emerald[50]
+            );
+        });
+
+        // Add a final page exclusively for feedback and the notice
+        doc.addPage();
+        
+        let finalPageYPos = margin + 20;
+
+        // Feedback Section
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(colors.slate[800]);
+        doc.text('Sua opinião é importante!', pageWidth / 2, finalPageYPos, { align: 'center' });
+        finalPageYPos += 8;
+
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(colors.slate[600]);
+        const feedbackIntro = 'Gostaríamos de ouvir sua opinião para continuar melhorando a plataforma.';
+        doc.text(feedbackIntro, pageWidth / 2, finalPageYPos, { align: 'center' });
+        finalPageYPos += 10;
+
+        const linkText = 'Envie sua sugestão';
+        const linkUrl = 'https://automation.aimentory.com.br/form/c6ab06e4-a8d9-4f1a-b5e6-beea1a9cb946';
+        const linkTextWidth = doc.getTextWidth(linkText);
+        const linkX = (pageWidth - linkTextWidth) / 2;
+        
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(colors.indigo[600]); // Blue color for link
+        doc.textWithLink(linkText, linkX, finalPageYPos, { url: linkUrl });
+        
+        // Divider
+        finalPageYPos += 20;
+        doc.setDrawColor(colors.slate[600]);
+        doc.line(margin, finalPageYPos, pageWidth - margin, finalPageYPos);
+        finalPageYPos += 15;
+
+        // Notice Section
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(colors.slate[800]);
+        doc.text('Aviso Importante', pageWidth / 2, finalPageYPos, { align: 'center' });
+        
+        // Reposition footer to the bottom of the available space
+        const finalFooterStartY = finalPageYPos + 10;
+        const footerText = "AVISO IMPORTANTE: Vitalidade Dourada AI é uma ferramenta de apoio e incentivo. As informações e planos gerados não substituem, em nenhuma hipótese, a consulta e o acompanhamento de médicos, nutricionistas, fisioterapeutas e outros profissionais de saúde. Sempre consulte um profissional antes de iniciar qualquer novo programa de exercícios ou dieta.";
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(colors.slate[600]);
+        doc.text(footerText, margin, finalFooterStartY, { maxWidth: contentWidth, align: 'justify' });
+
+
+        doc.save('plano_vitalidade_semanal.pdf');
+        setIsGeneratingPdf(false);
+    };
 
     if (!plan || !plan.plan || plan.plan.length === 0) {
         return (
@@ -168,10 +386,13 @@ const PlanDisplay: React.FC<PlanDisplayProps> = ({ plan, onBack }) => {
               {selectedDay && <DailyPlanView day={selectedDay} />}
             </div>
 
-            {/* Back Button */}
-            <div className="mt-12 text-center">
-                 <Button onClick={onBack} variant="secondary">
+            {/* Action Buttons */}
+            <div className="mt-12 text-center space-y-4 md:space-y-0 md:space-x-4">
+                 <Button onClick={onBack} variant="secondary" disabled={isGeneratingPdf}>
                    Gerar um Novo Plano
+                 </Button>
+                 <Button onClick={handleDownloadPdf} variant="primary" disabled={isGeneratingPdf}>
+                    {isGeneratingPdf ? <LoadingSpinner /> : 'Baixar Plano Semanal em PDF'}
                  </Button>
             </div>
         </div>
